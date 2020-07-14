@@ -2,7 +2,7 @@
 This is a simple manager for Lua, allowing me to hot-swipe between versions easily.
 As it also supports managing versions for LuaRocks as well.
 
-The only dependency is [argparse](), and should run using Lua >= 5.4.
+The only dependency is [argparse](https://github.com/mpeterv/argparse), and should run using Lua >= 5.4.
 
 This project is a personal project that fits my exact needs,
   since most managers for Lua only works on Linux, or shell dependent.
