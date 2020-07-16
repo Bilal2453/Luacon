@@ -11,7 +11,9 @@ local LUA_VERSIONS<const> = {
 
 local BATCH_EXT   <const> = "cmd"
 local LUA_VERSION <const> = "Lua 5.4"
-local CONFIGS_DIR <const> = [[./luacon-configs.lua]]
+-- You might consider changing this for a system wide compatibility
+-- this is just a dirty fix for my use case
+local CONFIGS_DIR <const> = arg[0]..[[/../luacon-configs.lua]]
 
 local defaultConfigs      = {
   CURRENT_LUA_VERSION    = LUA_VERSION,
@@ -41,41 +43,51 @@ end
 
 -----------------------------------------
 
-local configs, configsRead, configsWrite
+local configs
 
-do -- Open write/read configs (file) streams
-  local errmsg = "Attempt to open the configs file."
-  configsWrite = assert(io.open(CONFIGS_DIR, "w"), errmsg)
-  configsRead  = assert(io.open(CONFIGS_DIR, "r"), errmsg)
+local function wrapAsText(t, v)
+  return (v or "[[").. t.. (v or "]]")
 end
 
---- TODO: Use an actual Lua file to store configs, which leads to using require to read configs and table serializations 
 local function loadConfigs()
   if configs then return configs end -- No need to load again
-  local chunk = assert(configsRead:read('a'), "Attempt to read the configs file.")
+  local data, err, success
 
-  local data = {}
-  for key, value in chunk:gmatch('(%a)%s*=%s*(.-)[\n]*') do
-    data[key] = value
+  data = assert(io.open(CONFIGS_DIR, "r")):read('a')
+  success, data, err = pcall(load(data, 'Configs'))
+
+  if not success and data or not data and err then
+    parser:error("Attempt loading configs file : ".. data or err or 'Unknown issue')
   end
 
-  configs = data
+  configs = data or {}
   return data
 end
 
 local function saveConfigs(c)
   c = c or configs
+  local chunk = {"return {\n"}
 
-  local chunk = "{\n"
   do
-    for k, v in pairs(c) do
-      chunk = chunk.. '\t'.. (k .. ' = ' .. v .. '\n')
+    local buffer = {}
+    local function t(v)
+      return type(v) == 'string' and wrapAsText(v) or v
     end
-  end
-  chunk = chunk.. '}'
 
-  assert(configsWrite:write(chunk))
-  configsWrite:flush()
+    for k, v in pairs(c) do
+      table.insert(buffer, '\t'.. (k .. ' = ' .. t(v) .. ',\n'))
+    end
+
+    table.insert(chunk, table.concat(buffer))
+    buffer = nil
+  end
+
+  table.insert(chunk, '}')
+  chunk = table.concat(chunk)
+
+  local f = assert(io.open(CONFIGS_DIR, "w+"), "Attempt to open the configs file.")
+  assert(f:write(chunk))
+  f:close()
 end
 
 local function newVersionConfigs(ver)
@@ -102,11 +114,24 @@ local function changeLuaVersion(ver)
 end
 
 do -- load configs
+  if not io.open(CONFIGS_DIR, "r") then
+    io.open(CONFIGS_DIR, 'w'):close()
+  end
+
   loadConfigs()
 
   if not next(configs) then
     configs = defaultConfigs
     saveConfigs()
+  else -- writing any messing configs
+    local d
+    for k, v in pairs(defaultConfigs) do
+      if not configs[k] then
+        configs[k] = v
+        d = true
+      end
+    end
+    if d then saveConfigs() end
   end
 end
 
@@ -116,11 +141,6 @@ local function generateShellScript(ver)
   changeLuaVersion(ver or configs.CURRENT_LUA_VERSION)
   return (configs.COMMAND_BATCH:gsub('{(.-)}', configs))
 end
-
-local function wrapAsLText(t)
-  return "[[".. t.. "]]"
-end
-
 
 local function generateLuaCMD(ver)
   if ver and not LUA_VERSIONS[ver] then return end
@@ -154,11 +174,11 @@ local function generateRocksCMD(ver)
 
   local newValues = {
     -- These are all values needs changing
-    LUA_VERSION= wrapAsLText(c.CURRENT_LUA_VERSION:sub(5)),
-    LUA_INCDIR = wrapAsLText(c.DIR_LUA_INC),
-    LUA_LIBDIR = wrapAsLText(c.DIR_LUA_LIB),
-    LUA_BINDIR = wrapAsLText(c.DIR_LUA_BIN),
-    LUA_INTERPRETER = wrapAsLText(c.NAME_LUA_INTERP),
+    LUA_VERSION= wrapAsText(c.CURRENT_LUA_VERSION:sub(5)),
+    LUA_INCDIR = wrapAsText(c.DIR_LUA_INC),
+    LUA_LIBDIR = wrapAsText(c.DIR_LUA_LIB),
+    LUA_BINDIR = wrapAsText(c.DIR_LUA_BIN),
+    LUA_INTERPRETER = wrapAsText(c.NAME_LUA_INTERP),
   }
 
   -- Just going to replace the targeted values since the index is guarantee to exist
@@ -198,14 +218,17 @@ local function is_valid_target(t)
     <target> should be one of (lua [l], luarocks [r|rocks])"
 end
 
+
 local change = parser:command('change c', 'Changes the lua version used by the targeted item')
 change:argument('target',
   "The target that should use the specified version",
-  nil, is_valid_target)
+  nil, is_valid_target
+)
 
 change:argument('version',
   "The version that the target should use",
-  nil, is_valid_version)
+  nil, is_valid_version
+)
 
 
 change:action(function(args)
@@ -220,8 +243,7 @@ change:action(function(args)
       The version "LuaJIT" is not supported by the current target'
   end
 
-  os.exit()
+  os.exit(0)
 end)
 
-local a = parser:parse()
-for k, v in pairs(a) do print(k, v) end
+parser:parse()
