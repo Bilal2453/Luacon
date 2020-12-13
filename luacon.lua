@@ -37,17 +37,17 @@ end
 --             Handling Default Configs               --
 --------------------------------------------------------
 
-local LUA_VERSION <const> = "Lua 5.4" -- The default Lua version to use
+local LUA_VERSION <const> = 'Lua 5.4' -- The default Lua version to use
 
 local defaultConfigs      = {
   CURRENT_LUA_VERSION      = LUA_VERSION,
-  CURRENT_ROCKS_VERSION    = LUA_VERSION ~= "LuaJIT" and LUA_VERSION or "Lua 5.1",
+  CURRENT_ROCKS_VERSION    = LUA_VERSION ~= 'LuaJIT' and LUA_VERSION or 'Lua 5.1',
 
   DIR_BATCH_PATH           = BASE_DIR .. 'cmd/',
   DIR_ROCKS_TREE           = BASE_DIR .. 'LuaRocks/',
   DIR_LUA_TREE             = BASE_DIR .. LUA_VERSION,
   NAME_LUA_INTERP          = (LUA_VERSION ~= 'LuaJIT' and 'lua.exe' or 'luajit.exe'),
-  EXTENSION_BATCH          = "cmd",
+  EXTENSION_BATCH          = 'cmd',
 }
 
 do -- Set default configs that depends on previous configs
