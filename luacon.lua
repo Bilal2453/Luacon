@@ -252,7 +252,7 @@ change:action(function(args)
 
   if args.target == 1 then
     generateLuaCMD(args.version)
-  elseif args.version ~= "LuaJIT" then
+  elseif args.version ~= 'LuaJIT' then
     generateRocksCMD(args.version)
   else
     parser:error 'invalid argument <version>\
